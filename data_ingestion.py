@@ -8,7 +8,7 @@ from datetime import datetime
 config = configparser.ConfigParser(interpolation=None)
 config.read_file(open('/app/.env'))
 
-
+    
 # credentials
 API_KEY=config.get("TWITTER","API_KEY")
 API_KEY_SECRET=config.get("TWITTER",'API_KEY_SECRET')
@@ -59,7 +59,7 @@ def extract_tweets(client, cryptos):
 
     print(df.head())
     #df.to_json("google.json",orient='records',lines=True)
-    df.to_json(f"s3://cryptotweets-datalake/{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.json",
+    df.to_json(f"s3://{config.get('AWS','TWEETS_S3_BUCKET')}/{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.json",
           storage_options={'key': f'{config.get("AWS","KEY")}' ,
                            'secret': f'{config.get("AWS","SECRET")}'},orient='records',lines=True)
     
