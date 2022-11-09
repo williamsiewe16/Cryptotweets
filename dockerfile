@@ -11,7 +11,7 @@ RUN apt-get update -y \
 RUN airflow db init \
 && airflow users create --username airflow --password airflow --firstname airflow --lastname airflow --role Admin --email admin@airflow.com
 
-COPY data_ingestion.py requirements.txt .env /app/
+COPY data_ingestion.py requirements.txt /app/
 
 WORKDIR /app/
 

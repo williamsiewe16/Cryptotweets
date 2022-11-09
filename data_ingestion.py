@@ -4,7 +4,6 @@ import pandas as pd
 import configparser
 from datetime import datetime
 
-
 config = configparser.ConfigParser(interpolation=None)
 config.read_file(open('/app/.env'))
 
