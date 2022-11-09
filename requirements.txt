@@ -1,0 +1,7 @@
+tweepy
+kafka-python
+python-dotenv
+boto3
+pandas
+fsspec
+s3fs
