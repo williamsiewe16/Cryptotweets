@@ -3,3 +3,4 @@ notes
 launch.sh
 */.terraform*
 .env
+*/*.pem

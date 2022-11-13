@@ -19,4 +19,4 @@ RUN pip install -r requirements.txt
 
 COPY dags /root/airflow/dags
 
-CMD airflow standalone
+CMD airflow webserver
