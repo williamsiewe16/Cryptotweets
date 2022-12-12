@@ -1,23 +1,19 @@
 import tweepy
 import boto3
 import pandas as pd
-import configparser
+import os
 from datetime import datetime
-
-config = configparser.ConfigParser(interpolation=None)
-config.read_file(open('/app/.env'))
-
-
     
 # credentials
-API_KEY=config.get("TWITTER","API_KEY")
-API_KEY_SECRET=config.get("TWITTER",'API_KEY_SECRET')
-BEARER_TOKEN =config.get("TWITTER","BEARER_TOKEN")
-ACCESS_TOKEN = config.get("TWITTER",'ACCESS_TOKEN')
-ACCESS_TOKEN_SECRET = config.get("TWITTER",'ACCESS_TOKEN_SECRET')
+API_KEY=os.environ["TWITTER_API_KEY"]
+API_KEY_SECRET=os.environ["TWITTER_API_KEY_SECRET"]
+BEARER_TOKEN=os.environ["TWITTER_BEARER_TOKEN"]
+ACCESS_TOKEN=os.environ["TWITTER_ACCESS_TOKEN"]
+ACCESS_TOKEN_SECRET=os.environ["TWITTER_ACCESS_TOKEN_SECRET"]
 
-CLIENT_ID=config.get("TWITTER",'CLIENT_ID')
-CLIENT_SECRET=config.get("TWITTER",'CLIENT_SECRET')
+CLIENT_ID=os.environ["TWITTER_CLIENT_ID"]
+CLIENT_SECRET=os.environ["TWITTER_CLIENT_SECRET"]
+TWEETS_S3_BUCKET=os.environ["cryptotweets_datalake"]
 
 
 
@@ -63,7 +59,7 @@ def extract_tweets(client, cryptos):
     #    storage_options={'key': f'{config.get("AWS","KEY")}' ,
     #                       'secret': f'{config.get("AWS","SECRET")}'},orient='records',lines=True)
     
-    df.to_json(f"s3://{config.get('AWS','TWEETS_S3_BUCKET')}/{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.json",  orient='records',lines=True)
+    df.to_json(f"s3://{TWEETS_S3_BUCKET}/{datetime.now().strftime('%d-%m-%Y_%H-%M-%S')}.json",  orient='records',lines=True)
 
 
 

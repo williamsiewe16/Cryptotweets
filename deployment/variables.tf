@@ -1,5 +1,16 @@
-//iam roles
+variable "TWITTER_API_KEY" {}
+variable "TWITTER_API_KEY_SECRET" {}
+variable "TWITTER_BEARER_TOKEN" {}
+variable "TWITTER_ACCESS_TOKEN" {}
+variable "TWITTER_ACCESS_TOKEN_SECRET" {}
+variable "TWITTER_CLIENT_ID" {}
+variable "TWITTER_CLIENT_SECRET" {}
 
+variable "AWS_KEY" {}
+variable "AWS_SECRET" {}
+variable "AWS_REGION" {}
+
+//iam roles
 variable "glue_assume_role_policy" {
   type=string
   default = <<EOF
@@ -56,131 +67,80 @@ variable "redshift_assume_role_policy" {
             EOF
 }
 
-variable "ec2_role_name" {
-  type = string
-  default = "ec2_role"
+variable "lambda_assume_role_policy" {
+  type=string
+  default = <<EOF
+              {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                      {
+                          "Effect": "Allow",
+                          "Principal": {
+                              "Service": "lambda.amazonaws.com"
+                          },
+                          "Action": "sts:AssumeRole"
+                      }
+                  ]
+              }
+            EOF
 }
 
-variable "redshift_role_name" {
-  type = string
-  default = "redshift_role"
-}
 
-variable "glue_role_name" {
-  type = string
-  default = "glue_role"
-}
-
-variable "Add_delete_tags" {
-  type = string
-  default = "Add_delete_tags_"
-}
+variable "ec2_role_name" {}
+variable "redshift_role_name" {}
+variable "glue_role_name" {}
+variable "lambda_role_name" {}
+variable "Add_delete_tags" {}
 
 
 // security group
-variable "cryptotweets_security_group" {
-  type=string
-  default = "cryptotweets_security_group"
-}
+variable "cryptotweets_security_group" {}
 
 
 // vpc
-variable "vpc_name" {
-  type = string
-  default = "cryptotweets-vpc"
-}
+variable "vpc_name" {}
 
 // subnet
-variable "subnet_name" {
-  type = string
-  default = "cryptotweets-vpc"
-}
+variable "subnet_name" {}
 
-variable "subnet_id" {
-  type = string
-  default = "subnet-0a856a0dee72cc30d"
-}
+variable "subnet_id" {}
 
 // vpc endpoint
-variable "vpc_endpoint" {
-  type = string
-  default = "com.amazonaws.eu-west-3.s3"
-}
+variable "vpc_endpoint" {}
 
 // s3
-variable "cryptotweets-datalake" {
-  type = string
-  default = "cryptotweets-datalake1607"
-}
+variable "cryptotweets-datalake" {}
 
 
 // redshift
-variable "cryptotweets-cluster" {
-  default = "cryptotweets-cluster"
-}
-
-variable "cryptotweets-cluster-dbname" {
-  default = "dev"
-}
-
-variable "cryptotweets-cluster-user" {
-  default = "awsuser"
-}
-
-variable "cryptotweets-cluster-password" {
-  default = "Bonjour1606"
-}
-
-variable "cryptotrendings-redshift-table" {
-  default = "cryptotrendings"
-}
+variable "cryptotweets-cluster" {}
+variable "cryptotweets-cluster-dbname" {}
+variable "cryptotweets-cluster-user" {}
+variable "cryptotweets-cluster-password" {}
+variable "cryptotrendings-redshift-table" {}
 
 
 // glue
-variable "cryptotweets-glue-dbname" {
-  default = "cryptotweets_catalog"
-}
+variable "cryptotweets-glue-dbname" {}
+variable "cryptotweets-crawler" {}
+variable "cryptotrendings-crawler" {}
+variable "cryptotweets-glue-connector" {}
+variable "cryptotweets-glue-job" {}
 
-variable "cryptotweets-crawler" {
-  default = "cryptotweets_crawler"
-}
-
-variable "cryptotrendings-crawler" {
-  default = "cryptotrendings_crawler"
-}
-
-variable "cryptotweets-glue-connector" {
-  default = "cryptotweets-redshift-connector_"
-}
-
-variable "cryptotweets-glue-job" {
-  default = "s3_to_redshift_"
-}
-
+// lambda
+variable "cryptotweets_glue_job-name" {}
+variable "cryptotweets_glue_job-file" {}
+variable "cryptotweets_glue_job-archiveDir" {}
+variable "cryptotweets_twitter_scraper-name" {}
+variable "cryptotweets_twitter_scraper-file" {}
+variable "cryptotweets_twitter_scraper-archiveDir" {}
 
 // ECR
-variable "cryptotweets-ecr-repository" {
-  default = "cryptotweets-orchestrator"
-}
+variable "cryptotweets-ecr-repository" {}
 
 
 // EC2 for twitter scraper
-variable "ec2-name" {
-  type = string
-  default = "cryptotweets-orchestrator"
-}
-
-variable "ami" {
-    type = string
-    default = "ami-0493936afbe820b28"
-}
-
-variable "instance_type" {
-    type = string
-    default = "t2.micro"
-}
-
-variable "igw-name" {
-  type = string
-  default = "cryptotweets-igw"
-}
+variable "ec2-name" {}
+variable "ami" {}
+variable "instance_type" {}
+variable "igw-name" {}

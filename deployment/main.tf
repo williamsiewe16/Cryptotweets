@@ -1,6 +1,7 @@
 // create a vpc
 resource "aws_vpc" "cryptotweets-vpc" {
   cidr_block = "192.168.0.0/16"
+  #enable_dns_hostnames = true
   tags = {
    Name = var.vpc_name
   }  
@@ -119,9 +120,20 @@ resource "aws_iam_role" "ec2_role" {
 // create redshift role
 resource "aws_iam_role" "redshift_role" {
   name = var.redshift_role_name
-  assume_role_policy = var.ec2_assume_role_policy
+  assume_role_policy = var.redshift_assume_role_policy
   managed_policy_arns = [
     data.aws_iam_policy.AmazonS3FullAccess.arn,
+  ]
+}
+
+// create lambda role
+resource "aws_iam_role" "lambda_role" {
+  name = var.lambda_role_name
+  assume_role_policy = var.lambda_assume_role_policy
+  managed_policy_arns = [
+    data.aws_iam_policy.AmazonS3FullAccess.arn,
+    data.aws_iam_policy.AWSGlueConsoleFullAccess.arn,
+    data.aws_iam_policy.CloudWatchFullAccess.arn
   ]
 }
 
@@ -163,7 +175,7 @@ resource "aws_redshift_cluster" "cryptotweets-cluster" {
 */
 
 /*** glue ***/
-
+/*
 // glue database
 resource "aws_glue_catalog_database" "database" {
   name = var.cryptotweets-glue-dbname
@@ -185,7 +197,7 @@ resource "aws_glue_connection" "cryptotrendings" {
     subnet_id              = aws_subnet.cryptotweets-subnet.id
   }
 }
-/*
+
 // glue crawler for redshift table
 resource "aws_glue_crawler" "cryptotrendings" {
   database_name = aws_glue_catalog_database.database.name
@@ -231,8 +243,65 @@ resource "aws_ecr_repository" "repo" {
   name = var.cryptotweets-ecr-repository
 }*/
 
-/***  EC2 Orchestrator *****/
+/*** Lambda Functions ***/
 
+data "archive_file" "zip_the_python_code1" {
+type        = "zip"
+source_dir  = var.cryptotweets_twitter_scraper-archiveDir
+output_path = var.cryptotweets_twitter_scraper-file
+}
+
+// twitter scraper
+resource "aws_lambda_function" "twitter_scaper_lambda" {
+  # If the file is not in the current working directory you will need to include a
+  # path.module in the filename.
+  filename      = var.cryptotweets_twitter_scraper-file
+  function_name = var.cryptotweets_twitter_scraper-name
+  role          = aws_iam_role.lambda_role.arn
+  handler       = "script.lambda_handler"
+  runtime = "python3.8"
+
+  environment {
+    variables = {
+      TWITTER_API_KEY=var.TWITTER_API_KEY
+      TWITTER_API_KEY_SECRET=var.TWITTER_API_KEY_SECRET
+      TWITTER_BEARER_TOKEN=var.TWITTER_BEARER_TOKEN
+      TWITTER_ACCESS_TOKEN=var.TWITTER_ACCESS_TOKEN
+      TWITTER_ACCESS_TOKEN_SECRET=var.TWITTER_ACCESS_TOKEN_SECRET
+      TWITTER_CLIENT_ID=var.TWITTER_CLIENT_ID
+      TWITTER_CLIENT_SECRET=var.TWITTER_CLIENT_SECRET
+      cryptotweets_datalake=var.cryptotweets-datalake
+    }
+  }
+}
+
+
+data "archive_file" "zip_the_python_code2" {
+type        = "zip"
+source_dir  = var.cryptotweets_glue_job-archiveDir
+output_path = var.cryptotweets_glue_job-file
+}
+
+// glue job
+resource "aws_lambda_function" "glue_job_lambda" {
+  # If the file is not in the current working directory you will need to include a
+  # path.module in the filename.
+  filename      = var.cryptotweets_glue_job-file
+  function_name = var.cryptotweets_glue_job-name
+  role          = aws_iam_role.lambda_role.arn
+  handler       = "script.lambda_handler"
+  runtime = "python3.8"
+
+  environment {
+    variables = {
+      foo = "bar"
+    }
+  }
+}
+
+
+/***  EC2 Orchestrator *****/
+/*
 // ec2 instance profile
 resource "aws_iam_instance_profile" "ec2_profile" {
   name = "ec2_profile"
@@ -257,6 +326,22 @@ resource "aws_key_pair" "generated_key" {
   public_key = tls_private_key.example.public_key_openssh
 }
 
+// internet gateway
+resource "aws_internet_gateway" "internet_gateway" {
+  vpc_id = aws_vpc.cryptotweets-vpc.id
+  tags = {
+    Name = var.igw-name
+  }
+}
+
+// add aws route to our route table
+resource "aws_route" "route" {
+  route_table_id              = data.aws_route_table.route_table.id
+  destination_cidr_block      = "0.0.0.0/0"
+  gateway_id                  = aws_internet_gateway.internet_gateway.id
+}
+
+
 // EC2 instance
 resource "aws_instance" "orchestrator" {
   ami           = var.ami
@@ -276,21 +361,7 @@ resource "aws_instance" "orchestrator" {
   credit_specification {
     cpu_credits = "standard"
   }
-}
 
-// internet gateway
-resource "aws_internet_gateway" "internet_gateway" {
-  vpc_id = aws_vpc.cryptotweets-vpc.id
-  tags = {
-    Name = var.igw-name
-  }
-}
-
-// add aws route to our route table
-resource "aws_route" "route" {
-  route_table_id              = data.aws_route_table.route_table.id
-  destination_cidr_block      = "0.0.0.0/0"
-  gateway_id                  = aws_internet_gateway.internet_gateway.id
 }
 
 
@@ -306,28 +377,40 @@ resource "null_resource" "copy_files" {
 
   provisioner "remote-exec" {
     inline = [
-      "sudo mkdir -p /home/ubuntu/airflow/dags",
+      //"sudo mkdir -p /home/ubuntu/airflow/dags",
       "sudo mkdir -p /app",
       "sudo chmod 777 /app",
-      "sudo chmod 777 /home/ubuntu/airflow/dags"
+      "sudo chmod 777 /home/ubuntu/airflow",
+      "echo AIRFLOW_HOME=/home/ubuntu/airflow | sudo tee -a /etc/environment",
+      "echo TWITTER_API_KEY=${var.TWITTER_API_KEY} | sudo tee -a /etc/environment",
+      "echo TWITTER_API_KEY_SECRET=${var.TWITTER_API_KEY_SECRET} | sudo tee -a /etc/environment",
+      "echo TWITTER_BEARER_TOKEN=${var.TWITTER_BEARER_TOKEN} | sudo tee -a /etc/environment",
+      "echo TWITTER_ACCESS_TOKEN=${var.TWITTER_ACCESS_TOKEN} | sudo tee -a /etc/environment",
+      "echo TWITTER_ACCESS_TOKEN_SECRET=${var.TWITTER_ACCESS_TOKEN_SECRET} | sudo tee -a /etc/environment",
+      "echo TWITTER_CLIENT_ID=${var.TWITTER_CLIENT_ID} | sudo tee -a /etc/environment",
+      "echo TWITTER_CLIENT_SECRET=${var.TWITTER_CLIENT_SECRET} | sudo tee -a /etc/environment",
+      "echo cryptotweets_datalake=${var.cryptotweets-datalake} | sudo tee -a /etc/environment",
     ]
   }
 
+  
   provisioner "file" {
     source      = "../dags"
-    destination = "/home/ubuntu/airflow"
+    destination = "/app/"
   }
 
   provisioner "file" {
-    source      = "../data_ingestion.py"
-    destination = "/app/data_ingestion.py"
+    source      = "../twitter_scraper"
+    destination = "/app/"
+  }
+ 
+  
+  provisioner "remote-exec" {
+    script = "../exec_on_ec2.sh"
   }
 
-  provisioner "file" {
-    source      = "../requirements.txt"
-    destination = "/app/requirements.txt"
-  }
 
   depends_on = [ aws_instance.orchestrator ]
 
 }
+*/

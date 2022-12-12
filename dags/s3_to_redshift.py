@@ -15,7 +15,7 @@ def my_func():
 
 
 default_args = {
-    'owner': 'airflow',    
+    'owner': 'ubuntu',    
     #'start_date': airflow.utils.dates.days_ago(2),
     # 'end_date': datetime(),
     # 'depends_on_past': False,

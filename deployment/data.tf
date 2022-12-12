@@ -37,18 +37,19 @@ data "aws_iam_policy" "AmazonEC2ContainerRegistryFullAccess" {
 }
 
 // route table
+
 data "aws_route_table" "route_table" {
   vpc_id = aws_vpc.cryptotweets-vpc.id
   
   depends_on = [
     aws_vpc.cryptotweets-vpc,
     aws_subnet.cryptotweets-subnet,
-    aws_internet_gateway.internet_gateway
+    /*aws_internet_gateway.internet_gateway*/
   ]
 }
 
 
 
-data "aws_redshift_cluster" "example" {
+/*data "aws_redshift_cluster" "example" {
   cluster_identifier = "cryptotweets-cluster"
-}
+}*/

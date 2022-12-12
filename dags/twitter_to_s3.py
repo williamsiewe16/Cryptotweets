@@ -5,7 +5,7 @@ from datetime import timedelta
 from airflow.utils.dates import days_ago
 
 default_args = {
-    'owner': 'airflow',    
+    'owner': 'ubuntu',    
     #'start_date': airflow.utils.dates.days_ago(2),
     # 'end_date': datetime(),
     # 'depends_on_past': False,
@@ -30,8 +30,8 @@ dag_python = DAG(
 
 
 scrapping_task = BashOperator(
-    task_id="scrapping_task",
-    bash_command="python /app/data_ingestion.py",
+    task_id="scraping_task",
+    bash_command="python /app/twitter_scraper/twitter_scraper.py",
     dag=dag_python
 )
 
