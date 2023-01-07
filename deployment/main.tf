@@ -158,24 +158,25 @@ resource "aws_s3_bucket" "cryptotweets-datalake" {
   }
 }
 
+resource "aws_s3_bucket" "lambda_layers" {
+  bucket = "cryptotweets-lambda-layers"
+}
 // redshift cluster
-/*
+
 resource "aws_redshift_cluster" "cryptotweets-cluster" {
   cluster_identifier = var.cryptotweets-cluster
   database_name      = var.cryptotweets-cluster-dbname
   master_username    = var.cryptotweets-cluster-user
   master_password    = var.cryptotweets-cluster-password
   node_type          = "dc2.large"
-  clucluster_type    = "single-node"
-  cluster_security_groups = [aws_security_group.cryptotweets_security_group.id]
+  cluster_type       = "single-node"
+  #cluster_security_groups = [aws_security_group.cryptotweets_security_group.id]
   default_iam_role_arn = aws_iam_role.redshift_role.arn
   cluster_subnet_group_name = aws_subnet.cryptotweets-subnet.id
 }
 
-*/
-
 /*** glue ***/
-/*
+
 // glue database
 resource "aws_glue_catalog_database" "database" {
   name = var.cryptotweets-glue-dbname
@@ -184,7 +185,7 @@ resource "aws_glue_catalog_database" "database" {
 // glue redshift connection
 resource "aws_glue_connection" "cryptotrendings" {
   connection_properties = {
-    JDBC_CONNECTION_URL = "jdbc:redshift://${data.aws_redshift_cluster.example.endpoint}"//${aws_redshift_cluster.cryptotweets-cluster.endpoint}"//${var.cryptotweets-cluster-dbname}"
+    JDBC_CONNECTION_URL = "jdbc:redshift://${aws_redshift_cluster.cryptotweets-cluster.endpoint}"//${aws_redshift_cluster.cryptotweets-cluster.endpoint}"//${var.cryptotweets-cluster-dbname}"
     PASSWORD            = var.cryptotweets-cluster-password
     USERNAME            = var.cryptotweets-cluster-user
   }
@@ -232,26 +233,48 @@ resource "aws_glue_job" "s3_to_redshift" {
   max_retries=0
 
   command {
-    script_location = "../glue_job.py"
+    script_location = var.glue_job_path
     python_version = "3"
   }
 }
 
-
-// ECR repository
-resource "aws_ecr_repository" "repo" {
-  name = var.cryptotweets-ecr-repository
-}*/
-
 /*** Lambda Functions ***/
 
-data "archive_file" "zip_the_python_code1" {
-type        = "zip"
-source_dir  = var.cryptotweets_twitter_scraper-archiveDir
-output_path = var.cryptotweets_twitter_scraper-file
+/* twitter scraper */
+
+// lambda function archive
+data "archive_file" "lambda_layer_zip" {
+  type        = "zip"
+  source_dir  = "${var.cryptotweets_twitter_scraper-layer-dir}"
+  output_path = var.cryptotweets_twitter_scraper-layer-file
 }
 
-// twitter scraper
+// push lambda layer to s3
+resource "aws_s3_object" "object" {
+  bucket = aws_s3_bucket.lambda_layers.bucket
+  key    = "lambda_layer1"
+  source = var.cryptotweets_twitter_scraper-layer-file
+}
+
+// lambda layer
+resource "aws_lambda_layer_version" "lambda_layer" {
+  #filename   = var.cryptotweets_twitter_scraper-layer-file
+  layer_name = "twitter_layer"
+  s3_bucket = "${aws_s3_object.object.bucket}"
+  s3_key = "${aws_s3_object.object.key}"
+  s3_object_version = "${aws_s3_object.object.version_id}"
+
+  compatible_runtimes = ["python3.8"]
+}
+
+// lambda function archive
+data "archive_file" "zip_the_python_code1" {
+  type        = "zip"
+  source_dir  = var.cryptotweets_twitter_scraper-archiveDir
+  output_path = var.cryptotweets_twitter_scraper-file
+}
+
+// lambda function
 resource "aws_lambda_function" "twitter_scaper_lambda" {
   # If the file is not in the current working directory you will need to include a
   # path.module in the filename.
@@ -259,8 +282,12 @@ resource "aws_lambda_function" "twitter_scaper_lambda" {
   function_name = var.cryptotweets_twitter_scraper-name
   role          = aws_iam_role.lambda_role.arn
   handler       = "script.lambda_handler"
-  runtime = "python3.8"
-
+  runtime = "python3.9"
+  timeout = 300
+  layers        = [
+    aws_lambda_layer_version.lambda_layer.arn
+  ]
+  
   environment {
     variables = {
       TWITTER_API_KEY=var.TWITTER_API_KEY
@@ -275,14 +302,36 @@ resource "aws_lambda_function" "twitter_scaper_lambda" {
   }
 }
 
+// twitter_scraper trigger
+resource "aws_cloudwatch_event_rule" "twitter_scraper_rule" {
+    name = "twitter_scraper_rule"
+    schedule_expression = var.cryptotweets_twitter_scraper_scheduler
+}
 
+resource "aws_cloudwatch_event_target" "twitter_scraper_target" {
+    rule = aws_cloudwatch_event_rule.twitter_scraper_rule.name
+    target_id = "twitter_scraper_target"
+    arn = aws_lambda_function.twitter_scaper_lambda.arn
+}
+
+resource "aws_lambda_permission" "allow_cloudwatch_to_call_twitter_scraper" {
+    statement_id = "AllowExecutionFromCloudWatch"
+    action = "lambda:InvokeFunction"
+    function_name = aws_lambda_function.twitter_scaper_lambda.function_name
+    principal = "events.amazonaws.com"
+    source_arn = aws_cloudwatch_event_rule.twitter_scraper_rule.arn
+}
+
+/* glue job */
+
+// lambda function archive
 data "archive_file" "zip_the_python_code2" {
 type        = "zip"
 source_dir  = var.cryptotweets_glue_job-archiveDir
 output_path = var.cryptotweets_glue_job-file
 }
 
-// glue job
+// lambda function
 resource "aws_lambda_function" "glue_job_lambda" {
   # If the file is not in the current working directory you will need to include a
   # path.module in the filename.
@@ -290,7 +339,8 @@ resource "aws_lambda_function" "glue_job_lambda" {
   function_name = var.cryptotweets_glue_job-name
   role          = aws_iam_role.lambda_role.arn
   handler       = "script.lambda_handler"
-  runtime = "python3.8"
+  runtime = "python3.9"
+  timeout = 900
 
   environment {
     variables = {
@@ -299,118 +349,22 @@ resource "aws_lambda_function" "glue_job_lambda" {
   }
 }
 
-
-/***  EC2 Orchestrator *****/
-/*
-// ec2 instance profile
-resource "aws_iam_instance_profile" "ec2_profile" {
-  name = "ec2_profile"
-  role = aws_iam_role.ec2_role.name
+// glue_job trigger
+resource "aws_cloudwatch_event_rule" "glue_job_rule" {
+    name = "glue_job_rule"
+    schedule_expression = var.cryptotweets_glue_job_scheduler
 }
 
-// ssh key
-resource "tls_private_key" "example" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
+resource "aws_cloudwatch_event_target" "glue_job_target" {
+    rule = aws_cloudwatch_event_rule.glue_job_rule.name
+    target_id = "glue_job_target"
+    arn = aws_lambda_function.glue_job_lambda.arn
 }
 
-resource "local_file" "ec2_key" {
-  content = tls_private_key.example.private_key_pem
-  filename = "ec2_key.pem"
-  file_permission = "400"
+resource "aws_lambda_permission" "allow_cloudwatch_to_call_glue_job" {
+    statement_id = "AllowExecutionFromCloudWatch"
+    action = "lambda:InvokeFunction"
+    function_name = aws_lambda_function.glue_job_lambda.function_name
+    principal = "events.amazonaws.com"
+    source_arn = aws_cloudwatch_event_rule.glue_job_rule.arn
 }
-
-// aws key pair
-resource "aws_key_pair" "generated_key" {
-  key_name   = "my_key"
-  public_key = tls_private_key.example.public_key_openssh
-}
-
-// internet gateway
-resource "aws_internet_gateway" "internet_gateway" {
-  vpc_id = aws_vpc.cryptotweets-vpc.id
-  tags = {
-    Name = var.igw-name
-  }
-}
-
-// add aws route to our route table
-resource "aws_route" "route" {
-  route_table_id              = data.aws_route_table.route_table.id
-  destination_cidr_block      = "0.0.0.0/0"
-  gateway_id                  = aws_internet_gateway.internet_gateway.id
-}
-
-
-// EC2 instance
-resource "aws_instance" "orchestrator" {
-  ami           = var.ami
-  instance_type = var.instance_type
-
-  associate_public_ip_address = true
-  iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
-  vpc_security_group_ids = [aws_security_group.cryptotweets_security_group.id]
-  subnet_id = aws_subnet.cryptotweets-subnet.id
-  key_name = aws_key_pair.generated_key.key_name
-  user_data = "${file("../user_data.sh")}"
-  
-  tags = {
-    Name = var.ec2-name
-  }
-
-  credit_specification {
-    cpu_credits = "standard"
-  }
-
-}
-
-
-// copy files to ec2
-resource "null_resource" "copy_files" {
-
-  connection {
-    type        = "ssh"
-    user        = "ubuntu"
-    private_key = file("${local_file.ec2_key.filename}")
-    host        = "${aws_instance.orchestrator.public_ip}"
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      //"sudo mkdir -p /home/ubuntu/airflow/dags",
-      "sudo mkdir -p /app",
-      "sudo chmod 777 /app",
-      "sudo chmod 777 /home/ubuntu/airflow",
-      "echo AIRFLOW_HOME=/home/ubuntu/airflow | sudo tee -a /etc/environment",
-      "echo TWITTER_API_KEY=${var.TWITTER_API_KEY} | sudo tee -a /etc/environment",
-      "echo TWITTER_API_KEY_SECRET=${var.TWITTER_API_KEY_SECRET} | sudo tee -a /etc/environment",
-      "echo TWITTER_BEARER_TOKEN=${var.TWITTER_BEARER_TOKEN} | sudo tee -a /etc/environment",
-      "echo TWITTER_ACCESS_TOKEN=${var.TWITTER_ACCESS_TOKEN} | sudo tee -a /etc/environment",
-      "echo TWITTER_ACCESS_TOKEN_SECRET=${var.TWITTER_ACCESS_TOKEN_SECRET} | sudo tee -a /etc/environment",
-      "echo TWITTER_CLIENT_ID=${var.TWITTER_CLIENT_ID} | sudo tee -a /etc/environment",
-      "echo TWITTER_CLIENT_SECRET=${var.TWITTER_CLIENT_SECRET} | sudo tee -a /etc/environment",
-      "echo cryptotweets_datalake=${var.cryptotweets-datalake} | sudo tee -a /etc/environment",
-    ]
-  }
-
-  
-  provisioner "file" {
-    source      = "../dags"
-    destination = "/app/"
-  }
-
-  provisioner "file" {
-    source      = "../twitter_scraper"
-    destination = "/app/"
-  }
- 
-  
-  provisioner "remote-exec" {
-    script = "../exec_on_ec2.sh"
-  }
-
-
-  depends_on = [ aws_instance.orchestrator ]
-
-}
-*/

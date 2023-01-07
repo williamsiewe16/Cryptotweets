@@ -126,17 +126,19 @@ variable "cryptotweets-crawler" {}
 variable "cryptotrendings-crawler" {}
 variable "cryptotweets-glue-connector" {}
 variable "cryptotweets-glue-job" {}
+variable "glue_job_path" {}
 
 // lambda
 variable "cryptotweets_glue_job-name" {}
 variable "cryptotweets_glue_job-file" {}
 variable "cryptotweets_glue_job-archiveDir" {}
+variable "cryptotweets_glue_job_scheduler" {}
 variable "cryptotweets_twitter_scraper-name" {}
 variable "cryptotweets_twitter_scraper-file" {}
 variable "cryptotweets_twitter_scraper-archiveDir" {}
-
-// ECR
-variable "cryptotweets-ecr-repository" {}
+variable "cryptotweets_twitter_scraper-layer-file" {}
+variable "cryptotweets_twitter_scraper-layer-dir" {}
+variable "cryptotweets_twitter_scraper_scheduler" {}
 
 
 // EC2 for twitter scraper

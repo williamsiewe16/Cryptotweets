@@ -2,7 +2,10 @@ test*
 notes
 launch.sh
 */.terraform*
+*/terraform*
 .env
 */*.pem
 **/*.tfvars
-lambda/*/script.zip
+lambda/*/*.zip
+lambda/tmp/*
+lambda/layers/*

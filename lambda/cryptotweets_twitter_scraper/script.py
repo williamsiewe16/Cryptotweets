@@ -1,5 +1,4 @@
 import tweepy
-import boto3
 import pandas as pd
 import os
 from datetime import datetime
@@ -84,3 +83,8 @@ def lambda_handler(event, context):
 
 
     main()
+
+
+    return {
+        'statusCode': 200
+    }

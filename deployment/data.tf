@@ -48,8 +48,6 @@ data "aws_route_table" "route_table" {
   ]
 }
 
-
-
 /*data "aws_redshift_cluster" "example" {
   cluster_identifier = "cryptotweets-cluster"
 }*/
