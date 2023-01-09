@@ -4,16 +4,18 @@ Cryptotweets is a data pipeline fully built on AWS that ingest twitter data rela
 
 ## I- How it works
 
-![Architecture](pictures/architecture.png)
+![Architecture](pictures/architecture_.png)
 
 1- Cryptotweets works by pulling twitter data using the twitter streaming API. Tweets are ingested with a lambda function made in python and are stored in an S3 bucket
 
 2- Then there is another lambda function which role is to trigger a spark Glue job that aggregates data stored in S3 and save the result in a Redshift table.
 
-3- A dashboard built on Quicksight is plugged to the Redshift table and show visualisations
+3- A dashboard built on Tableau is plugged to the Redshift table and show some visualisations
 
 4- Amazon EventBridge is used to trigger the lambda functions.
 
+
+![Dashboard](pictures/dashboard.png)
 
 
 
