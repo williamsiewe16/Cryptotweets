@@ -4,7 +4,7 @@ Cryptotweets is a data pipeline fully built on AWS that ingest twitter data rela
 
 ## I- How it works
 
-![Architecture](pictures/architecture.png)
+![Architecture](pictures/architecture_.png)
 
 1- Cryptotweets works by pulling twitter data using the twitter streaming API. Tweets are ingested with a lambda function made in python and are stored in an S3 bucket
 
@@ -15,7 +15,7 @@ Cryptotweets is a data pipeline fully built on AWS that ingest twitter data rela
 4- Amazon EventBridge is used to trigger the lambda functions.
 
 
-
+![Dashboard](pictures/dashboard.png)
 
 ## II- Installation
 
